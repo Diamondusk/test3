@@ -1,0 +1,344 @@
+import React, { useState, useMemo } from 'react';
+import { 
+  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, 
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
+} from 'recharts';
+import { Wallet, TrendingUp, TrendingDown, PiggyBank, Calendar, Filter } from 'lucide-react';
+
+// --- 1. Mock Data (อ้างอิงจากโครงสร้างข้อมูลของ User) ---
+// ข้อมูลถูกจัดให้อยู่ในรูปแบบ Flat structure เพื่อให้ง่ายต่อการ Filter และทำกราฟ
+const mockData = [
+  // ปี 2567 (2024)
+  { id: 1, date: '2024-01-05', type: 'รายรับ', category: 'เงินเดือน', amount: 57297, description: 'เงินเดือน รพ. รัฐ' },
+  { id: 2, date: '2024-01-15', type: 'รายรับ', category: 'เวรเอกชน', amount: 32000, description: 'เวรชัยอรุณ' },
+  { id: 3, date: '2024-01-20', type: 'รายจ่าย', category: 'รายจ่ายทั่วไป', amount: 15000, description: 'ค่าใช้จ่ายประจำวัน' },
+  { id: 4, date: '2024-01-25', type: 'รายจ่าย', category: 'บัตรเครดิต', amount: 8500, description: 'บัตร KTC' },
+  { id: 5, date: '2024-01-28', type: 'เงินออม/ลงทุน', category: 'สหกรณ์', amount: 50000, description: 'หุ้นสหกรณ์' },
+  
+  { id: 6, date: '2024-02-05', type: 'รายรับ', category: 'เงินเดือน', amount: 57297, description: 'เงินเดือน รพ. รัฐ' },
+  { id: 7, date: '2024-02-12', type: 'รายรับ', category: 'เวรเอกชน', amount: 45000, description: 'เวรพิษณุโลกฮอสพิทอล' },
+  { id: 8, date: '2024-02-18', type: 'รายจ่าย', category: 'รายจ่ายทั่วไป', amount: 12000, description: 'ค่าใช้จ่ายประจำวัน' },
+  { id: 9, date: '2024-02-28', type: 'เงินออม/ลงทุน', category: 'กบข.', amount: 7500, description: 'หัก กบข.' },
+  { id: 10, date: '2024-02-28', type: 'เงินออม/ลงทุน', category: 'สหกรณ์', amount: 50000, description: 'หุ้นสหกรณ์' },
+
+  { id: 11, date: '2024-03-05', type: 'รายรับ', category: 'เงินเดือน', amount: 57297, description: 'เงินเดือน รพ. รัฐ' },
+  { id: 12, date: '2024-03-10', type: 'รายรับ', category: 'เงินพตส.', amount: 10000, description: 'พตส.' },
+  { id: 13, date: '2024-03-20', type: 'รายจ่าย', category: 'ให้ครอบครัว', amount: 10000, description: 'ให้แม่' },
+  { id: 14, date: '2024-03-25', type: 'รายจ่าย', category: 'บัตรเครดิต', amount: 12000, description: 'บัตร UOB' },
+  { id: 15, date: '2024-03-30', type: 'เงินออม/ลงทุน', category: 'คริปโต/หุ้น', amount: 10000, description: 'Dime!' },
+
+  // ปี 2568 (2025)
+  { id: 16, date: '2025-01-05', type: 'รายรับ', category: 'เงินเดือน', amount: 62000, description: 'เงินเดือนปรับขึ้น' },
+  { id: 17, date: '2025-01-15', type: 'รายรับ', category: 'เวรเอกชน', amount: 40000, description: 'รวมเวรเอกชน' },
+  { id: 18, date: '2025-01-20', type: 'รายจ่าย', category: 'รายจ่ายทั่วไป', amount: 18000, description: 'ค่าใช้จ่ายประจำวัน' },
+  { id: 19, date: '2025-01-28', type: 'เงินออม/ลงทุน', category: 'สหกรณ์', amount: 50000, description: 'หุ้นสหกรณ์' },
+  { id: 20, date: '2025-01-29', type: 'เงินออม/ลงทุน', category: 'กองทุน (SSF/RMF)', amount: 20000, description: 'Finnomena' },
+  
+  { id: 21, date: '2025-02-05', type: 'รายรับ', category: 'เงินเดือน', amount: 62000, description: 'เงินเดือน รพ.' },
+  { id: 22, date: '2025-02-10', type: 'รายรับ', category: 'เงินฉ.11', amount: 30000, description: 'ฉ.11' },
+  { id: 23, date: '2025-02-15', type: 'รายจ่าย', category: 'ภาษี', amount: 25000, description: 'จ่ายภาษีประจำปี' },
+  { id: 24, date: '2025-02-28', type: 'เงินออม/ลงทุน', category: 'สหกรณ์', amount: 50000, description: 'หุ้นสหกรณ์' },
+];
+
+const COLORS = {
+  'รายรับ': '#10b981', // Emerald
+  'รายจ่าย': '#ef4444', // Red
+  'เงินออม/ลงทุน': '#3b82f6', // Blue
+};
+
+const PIE_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
+
+const THAI_MONTHS = [
+  'ทั้งหมด', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 
+  'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
+];
+
+export default function App() {
+  // --- 2. States สำหรับ Filters ---
+  const [selectedYear, setSelectedYear] = useState('All');
+  const [selectedMonth, setSelectedMonth] = useState('All'); // 'All' หรือ '01', '02', ...
+  const [selectedType, setSelectedType] = useState('All'); // 'All', 'รายรับ', 'รายจ่าย', 'เงินออม/ลงทุน'
+
+  // --- 3. Logic การกรองข้อมูล (Filtering) ---
+  const filteredData = useMemo(() => {
+    return mockData.filter(item => {
+      const date = new Date(item.date);
+      const year = date.getFullYear().toString();
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+
+      const matchYear = selectedYear === 'All' || year === selectedYear;
+      const matchMonth = selectedMonth === 'All' || month === selectedMonth;
+      const matchType = selectedType === 'All' || item.type === selectedType;
+
+      return matchYear && matchMonth && matchType;
+    });
+  }, [selectedYear, selectedMonth, selectedType]);
+
+  // --- 4. Logic การคำนวณสรุปยอด (Summary) ---
+  const summary = useMemo(() => {
+    return filteredData.reduce((acc, curr) => {
+      if (curr.type === 'รายรับ') acc.income += curr.amount;
+      if (curr.type === 'รายจ่าย') acc.expense += curr.amount;
+      if (curr.type === 'เงินออม/ลงทุน') acc.savings += curr.amount;
+      return acc;
+    }, { income: 0, expense: 0, savings: 0 });
+  }, [filteredData]);
+
+  // --- 5. Data สำหรับกราฟแท่ง/เส้น (จัดกลุ่มตามเดือน) ---
+  const monthlyChartData = useMemo(() => {
+    // ข้ามการทำกราฟรายเดือนถ้า Filter เจาะจงเดือนใดเดือนหนึ่งอยู่
+    let sourceData = mockData;
+    if (selectedYear !== 'All') {
+        sourceData = sourceData.filter(d => new Date(d.date).getFullYear().toString() === selectedYear);
+    }
+
+    const grouped = sourceData.reduce((acc, curr) => {
+      const monthIndex = new Date(curr.date).getMonth();
+      const monthName = THAI_MONTHS[monthIndex + 1];
+      
+      if (!acc[monthName]) {
+        acc[monthName] = { name: monthName, 'รายรับ': 0, 'รายจ่าย': 0, 'เงินออม/ลงทุน': 0 };
+      }
+      acc[monthName][curr.type] += curr.amount;
+      return acc;
+    }, {});
+
+    // Sort by month index
+    return Object.values(grouped).sort((a, b) => THAI_MONTHS.indexOf(a.name) - THAI_MONTHS.indexOf(b.name));
+  }, [selectedYear]); // ไม่ผูกกับ filteredData เพื่อให้กราฟรวมยังเห็นภาพเปรียบเทียบเดือนอื่นๆ
+
+  // --- 6. Data สำหรับกราฟโดนัท (จัดกลุ่มตามหมวดหมู่) ---
+  const pieChartData = useMemo(() => {
+    const dataToUse = selectedType === 'All' 
+        ? filteredData.filter(d => d.type === 'รายจ่าย') // Default โชว์สัดส่วนรายจ่ายถ้าไม่ได้เลือก type
+        : filteredData;
+
+    const grouped = dataToUse.reduce((acc, curr) => {
+      if (!acc[curr.category]) acc[curr.category] = 0;
+      acc[curr.category] += curr.amount;
+      return acc;
+    }, {});
+
+    return Object.keys(grouped).map(key => ({
+      name: key,
+      value: grouped[key]
+    })).sort((a, b) => b.value - a.value); // เรียงจากมากไปน้อย
+  }, [filteredData, selectedType]);
+
+
+  // Format ตัวเลข
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('th-TH', { style: 'currency', currency: 'THB', maximumFractionDigits: 0 }).format(amount);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 text-gray-800 p-4 md:p-8 font-sans">
+      
+      {/* Header */}
+      <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 flex items-center gap-2">
+            <Wallet className="w-8 h-8 text-blue-600" />
+            My Financial Dashboard
+          </h1>
+          <p className="text-gray-500 mt-1">สรุปภาพรวมรายรับ รายจ่าย และการลงทุน</p>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-3 bg-white p-3 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex items-center gap-2 text-sm">
+            <Calendar className="w-4 h-4 text-gray-400" />
+            <select 
+              className="bg-gray-50 border border-gray-200 text-gray-700 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2"
+              value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)}
+            >
+              <option value="All">ทุกปี</option>
+              <option value="2024">ปี 2567</option>
+              <option value="2025">ปี 2568</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2 text-sm">
+            <select 
+              className="bg-gray-50 border border-gray-200 text-gray-700 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2"
+              value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}
+            >
+              {THAI_MONTHS.map((m, i) => (
+                <option key={m} value={i === 0 ? 'All' : i.toString().padStart(2, '0')}>{m}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2 text-sm border-l pl-3 border-gray-200">
+            <Filter className="w-4 h-4 text-gray-400" />
+            <select 
+              className="bg-gray-50 border border-gray-200 text-gray-700 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2"
+              value={selectedType} onChange={(e) => setSelectedType(e.target.value)}
+            >
+              <option value="All">ทุกประเภท</option>
+              <option value="รายรับ">รายรับ</option>
+              <option value="รายจ่าย">รายจ่าย</option>
+              <option value="เงินออม/ลงทุน">เงินออม/ลงทุน</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center gap-4 border-l-4 border-l-emerald-500 hover:shadow-md transition-shadow">
+          <div className="p-4 bg-emerald-50 rounded-full text-emerald-600">
+            <TrendingUp className="w-8 h-8" />
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 font-medium">รวมรายรับ</p>
+            <h3 className="text-2xl font-bold text-gray-900">{formatCurrency(summary.income)}</h3>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center gap-4 border-l-4 border-l-red-500 hover:shadow-md transition-shadow">
+          <div className="p-4 bg-red-50 rounded-full text-red-600">
+            <TrendingDown className="w-8 h-8" />
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 font-medium">รวมรายจ่าย</p>
+            <h3 className="text-2xl font-bold text-gray-900">{formatCurrency(summary.expense)}</h3>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center gap-4 border-l-4 border-l-blue-500 hover:shadow-md transition-shadow">
+          <div className="p-4 bg-blue-50 rounded-full text-blue-600">
+            <PiggyBank className="w-8 h-8" />
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 font-medium">เงินออมและการลงทุน</p>
+            <h3 className="text-2xl font-bold text-gray-900">{formatCurrency(summary.savings)}</h3>
+          </div>
+        </div>
+      </div>
+
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        
+        {/* Main Bar Chart - span 2 cols */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 lg:col-span-2">
+          <h3 className="text-lg font-bold text-gray-800 mb-6">ภาพรวมรายเดือน {selectedYear !== 'All' ? `(ปี ${parseInt(selectedYear) + 543})` : '(ทุกปี)'}</h3>
+          <div className="h-80 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={monthlyChartData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb"/>
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6b7280'}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#6b7280'}} tickFormatter={(value) => `${value / 1000}k`} />
+                <Tooltip 
+                  formatter={(value) => formatCurrency(value)}
+                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                />
+                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }}/>
+                <Bar dataKey="รายรับ" fill={COLORS['รายรับ']} radius={[4, 4, 0, 0]} maxBarSize={50} />
+                <Bar dataKey="รายจ่าย" fill={COLORS['รายจ่าย']} radius={[4, 4, 0, 0]} maxBarSize={50} />
+                <Bar dataKey="เงินออม/ลงทุน" fill={COLORS['เงินออม/ลงทุน']} radius={[4, 4, 0, 0]} maxBarSize={50} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Donut Chart - span 1 col */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <h3 className="text-lg font-bold text-gray-800 mb-2">
+            สัดส่วนตามหมวดหมู่ 
+          </h3>
+          <p className="text-sm text-gray-500 mb-4">
+             {selectedType === 'All' ? '(แสดงเฉพาะรายจ่าย)' : `(แสดงหมวด ${selectedType})`}
+          </p>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={pieChartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {pieChartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => formatCurrency(value)} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          {/* Custom Legend for Pie */}
+          <div className="mt-4 flex flex-wrap gap-2 justify-center max-h-32 overflow-y-auto">
+            {pieChartData.map((entry, index) => (
+              <div key={index} className="flex items-center gap-2 text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}></div>
+                <span>{entry.name}</span>
+                <span className="font-semibold text-gray-900">
+                  ({((entry.value / pieChartData.reduce((a,b)=>a+b.value, 0)) * 100).toFixed(0)}%)
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Data Table */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+          <h3 className="text-lg font-bold text-gray-800">รายการเคลื่อนไหว (Transactions)</h3>
+          <span className="text-sm text-gray-500">พบ {filteredData.length} รายการ</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-white text-gray-400 text-sm border-b border-gray-100">
+                <th className="p-4 font-medium">วันที่</th>
+                <th className="p-4 font-medium">ประเภท</th>
+                <th className="p-4 font-medium">หมวดหมู่</th>
+                <th className="p-4 font-medium">รายละเอียด</th>
+                <th className="p-4 font-medium text-right">จำนวนเงิน</th>
+              </tr>
+            </thead>
+            <tbody className="text-sm divide-y divide-gray-50">
+              {filteredData.length > 0 ? (
+                filteredData.map((row) => (
+                  <tr key={row.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="p-4 text-gray-600">
+                      {new Date(row.date).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })}
+                    </td>
+                    <td className="p-4">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium
+                        ${row.type === 'รายรับ' ? 'bg-emerald-100 text-emerald-700' : 
+                          row.type === 'รายจ่าย' ? 'bg-red-100 text-red-700' : 
+                          'bg-blue-100 text-blue-700'}`}
+                      >
+                        {row.type}
+                      </span>
+                    </td>
+                    <td className="p-4 font-medium text-gray-800">{row.category}</td>
+                    <td className="p-4 text-gray-500">{row.description}</td>
+                    <td className={`p-4 text-right font-bold
+                      ${row.type === 'รายรับ' ? 'text-emerald-600' : 
+                        row.type === 'รายจ่าย' ? 'text-gray-900' : 
+                        'text-blue-600'}`}
+                    >
+                      {row.type === 'รายจ่าย' ? '-' : ''}{formatCurrency(row.amount)}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="5" className="p-8 text-center text-gray-500">ไม่มีข้อมูลตามเงื่อนไขที่เลือก</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  );
+}
